@@ -29,9 +29,12 @@ const BOOTSTRAP = `
   alter default privileges in schema public grant all on tables to anon, authenticated;
 `;
 
-export async function createTestDb() {
+const STANDALONE = path.resolve(here, '../../../supabase/standalone/bootstrap.sql');
+
+/** standalone: apply the real supabase/standalone/bootstrap.sql (as on RDS) instead of the Supabase-like stub. */
+export async function createTestDb({ standalone = false } = {}) {
   const pg = new PGlite({ parsers: { 1700: (v) => Number.parseFloat(v), 20: (v) => Number.parseInt(v, 10), 1082: (v) => v } });
-  await pg.exec(BOOTSTRAP);
+  await pg.exec(standalone ? fs.readFileSync(STANDALONE, 'utf8') : BOOTSTRAP);
   const files = fs.readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
   for (const f of files) await pg.exec(fs.readFileSync(path.join(MIGRATIONS, f), 'utf8'));
   return {
