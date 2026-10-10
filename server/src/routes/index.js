@@ -40,6 +40,9 @@ export function buildRouter(limiters) {
   r.post('/auth/logout', authenticate({ allowInactive: true }), c.auth.logout);
   r.delete('/auth/me', authed, student, c.auth.deleteMe);
 
+  // signed file links (local storage provider); authorised by the HMAC in the token itself
+  r.get('/files/:token', c.files.get);
+
   // ---------------------------------------------------------------- notifications (any active user)
   r.get('/notifications', authed, validate({ query: S.notificationQuery }), c.notifications.list);
   r.get('/notifications/unread-count', authed, c.notifications.unread);

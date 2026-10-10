@@ -8,6 +8,8 @@ import { applicationService, exceptionService, interviewService } from '../servi
 import { notificationService } from '../services/notifications.js';
 import { analyticsService } from '../services/analytics.js';
 import { aiService } from '../services/ai.js';
+import { ctx } from '../context.js';
+import { notFound } from '../utils/errors.js';
 import { parsePaging } from '../utils/helpers.js';
 
 const ok = (res, data, status = 200) => res.status(status).json({ data });
@@ -16,6 +18,26 @@ const csv = (res, { csv: body, filename }) => {
   res.set('Content-Type', 'text/csv; charset=utf-8');
   res.set('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(body);
+};
+
+/** Signed, short-lived download links for the local storage provider. The signature is the credential. */
+export const files = {
+  get: async (req, res) => {
+    const found = await ctx.storage.resolveToken?.(req.params.token);
+    if (!found) throw notFound('This link is invalid or has expired');
+    res.sendFile(found.fullPath, {
+      dotfiles: 'allow',
+      cacheControl: false,
+      etag: false,
+      lastModified: false,
+      headers: {
+        'Content-Type': found.contentType,
+        'Content-Disposition': `inline; filename="${found.filename}"`,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  },
 };
 
 export const auth = {
