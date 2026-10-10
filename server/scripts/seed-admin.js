@@ -5,9 +5,12 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
+import { createLocalAuth } from '../src/adapters/localAuth.js';
 
-const { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME = 'Platform Admin', SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL } = process.env;
-for (const [k, v] of Object.entries({ ADMIN_EMAIL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL })) {
+const { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME = 'Platform Admin', SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, AUTH_PROVIDER = 'supabase', AUTH_JWT_SECRET } = process.env;
+const LOCAL = AUTH_PROVIDER === 'local';
+const required = LOCAL ? { ADMIN_EMAIL, DATABASE_URL, AUTH_JWT_SECRET } : { ADMIN_EMAIL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL };
+for (const [k, v] of Object.entries(required)) {
   if (!v) {
     console.error(`Missing ${k}. See server/.env.example.`);
     process.exit(1);
@@ -20,7 +23,7 @@ const password = ADMIN_PASSWORD || crypto.randomBytes(18).toString('base64url');
 
 const db = new pg.Client({ connectionString: DATABASE_URL, ssl: /localhost|127\.0\.0\.1/.test(DATABASE_URL) ? false : { rejectUnauthorized: false } });
 await db.connect();
-const supa = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const supa = LOCAL ? null : createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 try {
   const existing = (await db.query('select id, role from profiles where lower(email) = $1', [email])).rows[0];
@@ -30,17 +33,23 @@ try {
   }
 
   let userId;
-  const created = await supa.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: ADMIN_NAME } });
-  if (created.error) {
-    if (!/already|registered|exists/i.test(created.error.message)) throw created.error;
-    // auth user exists without a profile (e.g. an earlier partial run): reuse it and reset the password
-    const { data } = await supa.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const found = data.users.find((u) => u.email?.toLowerCase() === email);
-    if (!found) throw new Error('Auth user exists but could not be located.');
-    userId = found.id;
-    await supa.auth.admin.updateUserById(userId, { password, email_confirm: true });
+  if (LOCAL) {
+    // identities live in the same database (schema "auth"); only a scrypt hash of the password is stored
+    const local = createLocalAuth({ db, jwtSecret: AUTH_JWT_SECRET });
+    ({ userId } = await local.createUser({ email, password }));
   } else {
-    userId = created.data.user.id;
+    const created = await supa.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: ADMIN_NAME } });
+    if (created.error) {
+      if (!/already|registered|exists/i.test(created.error.message)) throw created.error;
+      // auth user exists without a profile (e.g. an earlier partial run): reuse it and reset the password
+      const { data } = await supa.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const found = data.users.find((u) => u.email?.toLowerCase() === email);
+      if (!found) throw new Error('Auth user exists but could not be located.');
+      userId = found.id;
+      await supa.auth.admin.updateUserById(userId, { password, email_confirm: true });
+    } else {
+      userId = created.data.user.id;
+    }
   }
 
   await db.query('begin');

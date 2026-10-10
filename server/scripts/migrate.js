@@ -17,6 +17,12 @@ const useSsl = !/localhost|127\.0\.0\.1/.test(url);
 const client = new pg.Client({ connectionString: url, ssl: useSsl ? { rejectUnauthorized: false } : false });
 await client.connect();
 try {
+  if (process.env.AUTH_PROVIDER === 'local') {
+    // Plain Postgres (e.g. RDS): provide the roles / auth schema the migrations expect. Idempotent.
+    const boot = path.resolve(dir, '../standalone/bootstrap.sql');
+    console.log('bootstrap standalone auth schema');
+    await client.query(fs.readFileSync(boot, 'utf8'));
+  }
   await client.query(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now())`);
   const done = new Set((await client.query('select name from public.schema_migrations')).rows.map((r) => r.name));
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
