@@ -1,26 +1,21 @@
 {
-  "name": "talentbridge",
-  "version": "0.1.0",
+  "name": "talentbridge-ai",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "description": "AI-powered campus placement and recruitment platform",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.4.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "test": "npm --prefix server test && npm --prefix client test",
+    "lint": "npm --prefix server run lint && npm --prefix client run lint",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "seed:admin": "npm --prefix server run seed:admin",
+    "seed:demo": "npm --prefix server run seed:demo",
+    "check:secrets": "node scripts/check-secrets.js",
+    "hooks:install": "node scripts/install-hooks.js"
   }
 }
