@@ -16,8 +16,8 @@ import { logger } from './utils/logger.js';
 export function createApp({ env = ctx.env, limits = {} } = {}) {
   const app = express();
   app.disable('x-powered-by');
-  // behind Nginx in production: trust exactly one proxy hop for req.ip / rate limiting
-  app.set('trust proxy', env.NODE_ENV === 'production' ? 1 : false);
+  // number of trusted proxy hops for req.ip / rate limiting (see TRUST_PROXY)
+  app.set('trust proxy', env.TRUST_PROXY ?? (env.NODE_ENV === 'production' ? 1 : 0));
 
   app.use((req, res, next) => {
     req.id = req.headers['x-request-id']?.toString().slice(0, 64) || crypto.randomUUID();
