@@ -126,3 +126,36 @@ node server/scripts/migrate.js                             # prints "skip" for a
 
 Provision or modify AWS resources (security groups, IAM, load balancers, DNS), install packages on the server, open ports, or
 issue certificates. Each needs your explicit go-ahead after you have seen the plan.
+
+---
+
+## Standalone deployment: EC2 + RDS PostgreSQL (no Supabase)
+
+Used for the first real deployment. All data (accounts, profiles, applications, audit log) lives in the RDS database;
+resumes are files on the EC2 disk.
+
+| Setting | Value |
+|---|---|
+| `AUTH_PROVIDER=local` | email/password accounts in schema `auth` of `DATABASE_URL`; passwords are salted **scrypt** hashes; refresh/recovery tokens stored hashed; access tokens are HS256 JWTs signed with `AUTH_JWT_SECRET` |
+| `STORAGE_PROVIDER=local` | files under `LOCAL_UPLOAD_DIR` (mode 700), readable only through 2-minute HMAC-signed links `GET /api/files/<token>` |
+| `TRUST_PROXY=0` | API reachable directly; set to `1` once Nginx fronts it |
+
+Layout on the server (deploy user's home, so no root needed): `~/talentbridge/{releases/<ts>, current, shared/server.env (600), shared/uploads, logs}`.
+The process runs as `talentbridge-api` in the **existing** pm2 daemon on port 4000, alongside any other pm2 apps.
+
+```bash
+# one-time database + schema (idempotent)
+DOTENV_CONFIG_PATH=~/talentbridge/shared/server.env node scripts/create-database.js
+AUTH_PROVIDER=local DOTENV_CONFIG_PATH=~/talentbridge/shared/server.env node scripts/migrate.js
+# first admin
+DOTENV_CONFIG_PATH=~/talentbridge/shared/server.env ADMIN_EMAIL=you@example.com node scripts/seed-admin.js
+# run
+TB_ROOT=~/talentbridge TB_LOG_DIR=~/talentbridge/logs pm2 start current/deploy/ecosystem.config.cjs --only talentbridge-api --env production
+pm2 save
+```
+
+Operational notes
+* `supabase/standalone/bootstrap.sql` must only be applied to plain Postgres (the migrate script does it when `AUTH_PROVIDER=local`). Never on a Supabase project.
+* Password-reset links are emailed, so reset needs SMTP settings; without them the request is accepted but no mail is sent.
+* Uploaded resumes are on one disk: include `shared/uploads` in your backups, or move to S3 before running a second instance.
+* Rotating `AUTH_JWT_SECRET` signs every user out and invalidates outstanding file links.
