@@ -1,0 +1,97 @@
+/* Design tokens as CSS variables (mirrors theme/tokens.js). Bootstrap's grid + utilities are used for
+   layout only; every component comes from MUI so there is one visual system. */
+:root {
+  --tb-midnight: #101426;
+  --tb-midnight-2: #1a2038;
+  --tb-indigo: #635bff;
+  --tb-indigo-dark: #4f46e5;
+  --tb-indigo-tint: #ecebff;
+  --tb-lilac: #a78bfa;
+  --tb-lilac-tint: #f1ecff;
+  --tb-ai-text: #5b34c9;
+  --tb-teal: #22c7a9;
+  --tb-teal-tint: #e0f7f2;
+  --tb-success-text: #0b7a66;
+  --tb-canvas: #f6f7fb;
+  --tb-border: #e3e6ef;
+  --tb-text: #101426;
+  --tb-text-secondary: #4b5168;
+  --tb-text-muted: #6b7186;
+  --tb-amber: #b45309;
+  --tb-amber-tint: #fef3c7;
+  --tb-red: #b42318;
+  --tb-red-tint: #fee4e2;
+  --tb-radius-card: 16px;
+
+  /* point Bootstrap's variables at our tokens so utilities stay on-brand */
+  --bs-primary: var(--tb-indigo);
+  --bs-body-bg: var(--tb-canvas);
+  --bs-body-color: var(--tb-text);
+  --bs-border-color: var(--tb-border);
+  --bs-gutter-x: 1.25rem;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--tb-canvas);
+  color: var(--tb-text);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* visible keyboard focus everywhere */
+:focus-visible {
+  outline: 3px solid var(--tb-indigo);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 3000;
+  background: var(--tb-midnight);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+.skip-link:focus {
+  left: 8px;
+}
+
+.tb-ai {
+  background: var(--tb-lilac-tint);
+  border: 1px solid #ddd2fb;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tb-fade-in {
+    animation: tb-fade 240ms ease-out both;
+  }
+  @keyframes tb-fade {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
