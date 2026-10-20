@@ -1,5 +1,6 @@
 // The "local" providers used for a plain-Postgres deployment (Amazon RDS): accounts in schema "auth",
 // HS256 tokens, files on disk with HMAC-signed links. Runs the real bootstrap.sql + migrations on PGlite.
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -215,5 +216,35 @@ describe('private file storage', () => {
     await expect(storage.signedUrl('../../etc/passwd')).rejects.toBeTruthy();
     // files are never overwritten
     await expect(storage.upload('u1/a.pdf', Buffer.from('other'))).rejects.toBeTruthy();
+  });
+});
+
+// Must stay LAST in this file: it removes the profiles -> auth.users foreign key for the rest of the run.
+describe('external identity (Supabase Auth in front of a plain Postgres database)', () => {
+  const insertProfile = (id) =>
+    db.query(
+      `insert into profiles (id, email, full_name, role, status, college_id) values ($1, $2, 'External User', 'student', 'active', $3)`,
+      [id, `ext-${id}@example.com`, collegeId],
+    );
+  const uuid = () => crypto.randomUUID();
+
+  it('a user id that only exists in Supabase is rejected until the identity is detached', async () => {
+    await expect(insertProfile(uuid())).rejects.toThrow(/foreign key|violates/i);
+  });
+
+  it('external-identity.sql removes the constraint, is idempotent, and leaves the rest of the schema intact', async () => {
+    const sql = await fs.readFile(path.resolve(import.meta.dirname, '../../../supabase/standalone/external-identity.sql'), 'utf8');
+    await db.raw.exec(sql);
+    await db.raw.exec(sql);
+    await expect(insertProfile(uuid())).resolves.toBeTruthy();
+    // other integrity is untouched: still one profile per email, still a valid role
+    const id = uuid();
+    await insertProfile(id);
+    await expect(
+      db.query(`insert into profiles (id, email, full_name, role, status, college_id) values ($1, $2, 'Dup', 'student', 'active', $3)`, [uuid(), `ext-${id}@example.com`, collegeId]),
+    ).rejects.toThrow();
+    await expect(
+      db.query(`insert into profiles (id, email, full_name, role, status, college_id) values ($1, $2, 'Bad', 'superuser', 'active', $3)`, [uuid(), `bad-${id}@example.com`, collegeId]),
+    ).rejects.toThrow();
   });
 });
