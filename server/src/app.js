@@ -19,6 +19,13 @@ export function createApp({ env = ctx.env, limits = {} } = {}) {
   // number of trusted proxy hops for req.ip / rate limiting (see TRUST_PROXY)
   app.set('trust proxy', env.TRUST_PROXY ?? (env.NODE_ENV === 'production' ? 1 : 0));
 
+  // Tolerate a doubled leading slash ("//api/..."). It appears when a front-end joins a base URL that
+  // ends in "/" with "/api", and would otherwise 404 (without CORS headers, which then hides the real cause).
+  app.use((req, _res, next) => {
+    if (req.url.startsWith('//')) req.url = req.url.replace(/^\/{2,}/, '/');
+    next();
+  });
+
   app.use((req, res, next) => {
     req.id = req.headers['x-request-id']?.toString().slice(0, 64) || crypto.randomUUID();
     res.set('X-Request-Id', req.id);
@@ -30,10 +37,13 @@ export function createApp({ env = ctx.env, limits = {} } = {}) {
   });
 
   app.use(helmet());
-  const allowed = env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean);
+  // Origins are compared without a trailing slash and case-insensitively, so "https://app.vercel.app/" in
+  // CORS_ORIGINS still matches the browser's "https://app.vercel.app".
+  const normaliseOrigin = (s) => s.trim().replace(/\/+$/, '').toLowerCase();
+  const allowed = env.CORS_ORIGINS.split(',').map(normaliseOrigin).filter(Boolean);
   app.use(
     cors({
-      origin: (origin, cb) => cb(null, !origin || allowed.includes(origin)),
+      origin: (origin, cb) => cb(null, !origin || allowed.includes(normaliseOrigin(origin))),
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
       maxAge: 600,
