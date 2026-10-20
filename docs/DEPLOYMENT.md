@@ -159,3 +159,53 @@ Operational notes
 * Password-reset links are emailed, so reset needs SMTP settings; without them the request is accepted but no mail is sent.
 * Uploaded resumes are on one disk: include `shared/uploads` in your backups, or move to S3 before running a second instance.
 * Rotating `AUTH_JWT_SECRET` signs every user out and invalidates outstanding file links.
+
+---
+
+## Switching authentication to Supabase (data stays in RDS)
+
+Target: **Supabase Auth** for sign-up / sign-in / password reset, **RDS** for all application data, resumes still on the
+server disk (`STORAGE_PROVIDER=local`). Supabase then holds only identities (email + password hash); profiles, drives,
+applications and the audit log remain in the `talentbridge` RDS database.
+
+### 1. In the Supabase dashboard (project → Settings)
+| Need | Where | Goes in `server.env` as |
+|---|---|---|
+| Project URL | Settings → API | `SUPABASE_URL` |
+| Publishable / anon key | Settings → API Keys | `SUPABASE_ANON_KEY` |
+| **Secret / service-role key** (server only; never commit, never put in the client) | Settings → API Keys | `SUPABASE_SERVICE_ROLE_KEY` |
+| JWT secret (**only** if the project still uses the legacy HS256 secret) | Settings → JWT | `SUPABASE_JWT_SECRET` |
+
+Authentication → URL Configuration: set **Site URL** to the frontend origin (`CLIENT_URL`) and add
+`<CLIENT_URL>/reset-password` to **Redirect URLs**, or password-reset links will be rejected.
+Authentication → Providers → Email: decide whether **Confirm email** is required. Supabase's built-in mailer is heavily
+rate limited; configure your own SMTP under Authentication → SMTP for real use.
+
+### 2. On the server (`~/talentbridge/shared/server.env`)
+```
+AUTH_PROVIDER=supabase
+STORAGE_PROVIDER=local        # resumes stay on this server's disk
+DB_MODE=standalone            # DATABASE_URL is RDS, not a Supabase database
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+# keep AUTH_JWT_SECRET: it still signs the resume download links
+```
+
+### 3. Apply and restart
+```bash
+cd ~/talentbridge/current/server
+DOTENV_CONFIG_PATH=~/talentbridge/shared/server.env node scripts/migrate.js   # drops the profiles -> auth.users FK (idempotent)
+pm2 restart talentbridge-api --update-env
+curl -s http://127.0.0.1:4000/health
+```
+
+### 4. Things to know
+* **Existing local accounts cannot be moved.** Their passwords are scrypt hashes, which Supabase cannot import. Switch before real
+  users register, or have those users re-register / reset their passwords.
+* **Create the first admin again** with `ADMIN_EMAIL=... node scripts/seed-admin.js` (it now creates the user in Supabase).
+* **Tokens:** the API verifies Supabase JWTs locally via the project's JWKS. If sign-in works but every API call returns
+  `401 invalid_token`, the project uses the legacy secret: set `SUPABASE_JWT_SECRET`.
+* **Deleting an account** removes the profile row first and then the Supabase user; a failure in between leaves an orphaned
+  Supabase user that can be removed from the dashboard (Authentication → Users).
+* Rolling back is a config change: set `AUTH_PROVIDER=local` again (users created in Supabase will not exist locally).
