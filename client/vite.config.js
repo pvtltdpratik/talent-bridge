@@ -28,6 +28,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test/setup.js',
+    // tests must not depend on a developer's local .env (e.g. a VITE_API_URL pointing at a real server)
+    env: { VITE_API_URL: '' },
     css: false,
   },
 });

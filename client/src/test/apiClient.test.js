@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, fieldErrors, sessionStore } from '../api/client.js';
+import { api, apiBase, ApiError, fieldErrors, sessionStore } from '../api/client.js';
+
+describe('apiBase', () => {
+  it('never produces a double slash, whatever the configured URL looks like', () => {
+    expect(apiBase('')).toBe('/api');
+    expect(apiBase(undefined)).toBe('/api');
+    expect(apiBase('https://talentbridge.khaadsetu-ec2.workers.dev')).toBe('https://talentbridge.khaadsetu-ec2.workers.dev/api');
+    expect(apiBase('https://talentbridge.khaadsetu-ec2.workers.dev/')).toBe('https://talentbridge.khaadsetu-ec2.workers.dev/api');
+    expect(apiBase('  https://api.example.com///  ')).toBe('https://api.example.com/api');
+  });
+});
 
 const json = (status, body) => ({ ok: status < 400, status, json: async () => body, blob: async () => new Blob(['x']) });
 

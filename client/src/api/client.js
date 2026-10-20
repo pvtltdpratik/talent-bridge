@@ -1,6 +1,8 @@
 // Fetch wrapper: Bearer auth, single in-flight token refresh, normalised errors.
 // The browser only ever talks to our API. There is no Supabase SDK or key in the client.
-const BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
+/** API prefix from VITE_API_URL. Trailing slashes are dropped so "https://api.x.dev/" cannot become "https://api.x.dev//api". */
+export const apiBase = (raw) => `${String(raw ?? '').trim().replace(/\/+$/, '')}/api`;
+const BASE = apiBase(import.meta.env.VITE_API_URL);
 const STORAGE_KEY = 'tb.session';
 
 export class ApiError extends Error {
