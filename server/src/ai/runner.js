@@ -75,7 +75,7 @@ export async function runFeature({ feature, userId, driveId = null, scopeKey, ha
 
   const model = ctx.gemini.model;
   if (!validated) {
-    logger.warn('ai feature failed', { feature, kind: failure?.kind });
+    logger.warn('ai feature failed', { feature, kind: failure?.kind, reason: failure?.message });
     await aiResults
       .insertFailed({ feature, userId, driveId, scopeKey, model, promptVersion: PROMPT_VERSION, inputHash: hash, error: failure?.kind ?? 'unavailable' })
       .catch(() => {});

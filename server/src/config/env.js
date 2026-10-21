@@ -43,7 +43,7 @@ const schema = z.object({
   PUBLIC_API_URL: z.string().optional(),
 
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-3.5-flash'),
   GEMINI_TIMEOUT_MS: z.coerce.number().int().default(30000),
 
   // optional email (disabled unless SMTP_HOST is set)

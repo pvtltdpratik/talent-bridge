@@ -77,6 +77,6 @@ workforce analytics/IoT, ML placement-probability model, company self-login.
 | G8 | AI result freshness | An analysis made for an older resume version is shown as "stale" and is **not** used in the readiness score. |
 | G9 | Ranking pools | "Applicants of this drive" (default) or "all eligible, verified students". AI enrichment is capped at 20 candidates per request. Saving a manual order sets `manual_rank` which then takes precedence. |
 | G10 | Local preview | `server/scripts/dev-preview.js` runs the real API on in-memory Postgres with fake auth for UI exploration. Never for production; it is blocked when `NODE_ENV=production`. |
-| G11 | Gemini default model | `gemini-2.5-flash` is only a default; set `GEMINI_MODEL` to whatever your key supports. |
+| G11 | Gemini default model | `gemini-3.5-flash` is only a default; Google retires models (2.5 and 2.0 flash now return 404), so set `GEMINI_MODEL` to whatever your key supports. |
 | G12 | Fonts | Space Grotesk and Inter are self-hosted via npm (@fontsource), so no third-party font request is made and the CSP can stay `'self'`. |
 | G13 | MUI v9 | `Stack` no longer accepts `alignItems`/`justifyContent`/`flexWrap`; `client/src/components/layout.jsx` wraps it so the existing API keeps working. |
