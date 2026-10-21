@@ -35,6 +35,8 @@ try {
   let userId;
   if (LOCAL) {
     // identities live in the same database (schema "auth"); only a scrypt hash of the password is stored
+    // an earlier partial run may have left an identity without a profile: drop that orphan so the password is set fresh
+    await db.query('delete from auth.users u where lower(u.email) = $1 and not exists (select 1 from public.profiles p where p.id = u.id)', [email]);
     const local = createLocalAuth({ db, jwtSecret: AUTH_JWT_SECRET });
     ({ userId } = await local.createUser({ email, password }));
   } else {
@@ -57,7 +59,7 @@ try {
     `insert into profiles (id, email, full_name, role, status, college_id, consent_at) values ($1,$2,$3,'admin','active',null, now())`,
     [userId, email, ADMIN_NAME],
   );
-  await db.query(`insert into audit_logs (actor_id, actor_role, action, target_type, target_id, new_value) values ($1,'admin','admin.seeded','profile',$1,$2::jsonb)`, [userId, JSON.stringify({ email })]);
+  await db.query(`insert into audit_logs (actor_id, actor_role, action, target_type, target_id, new_value) values ($1::uuid,'admin','admin.seeded','profile',$1::text,$2::jsonb)`, [userId, JSON.stringify({ email })]);
   await db.query('commit');
 
   console.log(`Admin created: ${email}`);
